@@ -59,6 +59,28 @@ function get_git_status()
     return true
 end
 
+function get_git_status_for_position(branch)
+    local stat = io.popen("git status | grep -A 0 'Your branch ' 2>nul")
+    local position
+    local position2 
+    for line in stat:lines() do
+        position = "> " ..line
+        if string.match(position, 'up to date') then
+            position = nil
+        else
+            if string.match(position, 'diverged') then
+                local diverged = io.popen("git branch -v | grep "..branch.. " | grep -o 'ahead [0-9].*]' 2>nul")
+                for diverge in diverged:lines() do
+                    position = position .. " ".. diverge
+                end
+                diverged.close()
+            end
+        end
+    end
+    stat.close()
+    return position
+end
+
 ---
 -- Gets the conflict status
 -- @return {bool} indicating true for conflict, false for no conflicts
@@ -97,7 +119,13 @@ local function init()
             -- Has branch => therefore it is a git folder, now figure out status
             local gitStatus = get_git_status()
             local gitConflict = get_git_conflict()
-            segment.text = " "..plc_git_branchSymbol.." "..branch.." "
+            local gitPosition = get_git_status_for_position(branch)
+            
+            if gitPosition then
+                segment.text = " "..plc_git_branchSymbol.." "..branch.." "..gitPosition.." "
+            else
+                segment.text = " "..plc_git_branchSymbol.." "..branch.." "
+            end
 
 
             if gitConflict then
